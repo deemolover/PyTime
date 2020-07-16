@@ -1,3 +1,5 @@
+import os
+
 import pygame
 from pygame.locals import *
 
@@ -11,6 +13,72 @@ def blitCentering(dest, image, pos):
     y = y - image.get_height()/2
     dest.blit(image, (x, y))
 
+class ResourcePack():
+    # TODO: implement auto loading from resource directory
+    def __init__(self):
+        self.resources = {}
+        
+    def loadImage(self, name, **args):
+        '''
+        param:
+        directory - folder the image file is in(default: "resources")
+        filename - image filename(default: combine name & extension)
+        extension - image file format(default: "png")
+        '''
+        directory = args.get("directory", "resources")
+        extension = args.get("extension", "png")
+        filename = args.get("filename", name + "." + extension)
+        self.resources[name] = pygame.image.load(
+            os.path.join(directory, filename))
+        
+    def getImage(self, name):
+        return self.resources.get(name)
+        
+
+class RingSkill(PlayerSkillBase):
+    def __init__(self, identity, player):
+        super(RingSkill, self).__init__(identity, player)
+        self.cooldownTimer = 0
+        self.cooldownPeriod = 10
+        
+        self.renderTimer = 0
+        self.renderPeriod = 120
+        
+        self.innerRad = 20
+        self.outerRad = 100
+        self.usedPoint = None
+    
+    def step(self):
+        ''' override '''
+        if self.cooldownTimer > 0:
+            self.cooldownTimer -= 1
+            
+    def renderSkill(self):
+        if self.renderTimer > 0:
+            radius = (self.innerRad + self.outerRad) / 2
+            width = self.outerRad - self.innerRad
+            
+            self.renderTimer -= 1
+            
+    
+    def isActive(self):
+        return self.cooldownTimer == 0
+    
+    def useSkillOn(self, manager):
+        if self.cooldownTimer > 0:
+            return Result.SKILL_UNAVAILABLE
+        else:
+            self.usedPoint = self.player.core.pos.toTuple()
+            manager.backward(self._getPeriod)
+            self.cooldownTimer = self.cooldownPeriod
+            self.renderTimer = self.renderPeriod
+        return Result.SUCCEED
+    
+    def _getPeriod(self, key):
+        pass
+        
+        
+    
 
 class UserEvent():
     PRINTER = pygame.USEREVENT + 1
@@ -83,13 +151,19 @@ class GameController():
             elif event.type == UserEvent.PRINTER:
                 self.player.detailPrinter()
             return res
+            
+        def renderPlayer(self, surface):
+            pos = self.player.core.pos.toTuple()
+            image = self.owner.resources.getImage("player")
+            blitCentering(surface, image, pos)
+            
 
     def __init__(self, screen):
         self.screen = screen
 
-        self.resources = {}
-        self.resources["player"] = pygame.image.load(
-            "resources/PLAYER.png")
+        self.resources = ResourcePack()
+        self.resources.loadImage("player")
+        
         self.FPS = 40
         self.worldRect = (640, 480)
         self.interval = (2, 2)
@@ -151,10 +225,6 @@ class GameController():
             for data in self.players.values():
                 data.parseEvent(event)
 
-    def renderPlayer(self, data):
-        pos = data.player.core.pos.toTuple()
-        blitCentering(self.screen, self.resources["player"], pos)
-
     def update(self):
         ''' called from pygame cycle '''
         for data in self.players.values():
@@ -165,4 +235,4 @@ class GameController():
         surface = self.renderer.render()
         self.screen.blit(surface, (0, 0))
         for data in self.players.values():
-            self.renderPlayer(data)
+            data.renderPlayer(self.screen)

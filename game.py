@@ -13,6 +13,12 @@ SCREEN_HEIGHT = 480
 SCREEN_WIDTH = 640
 
 
+class Result():
+    SUCCEED = 0
+    INVALID_DIRECTION = 1
+    SKILL_UNAVAILABLE = 2
+
+
 class ParticleManager():
     '''
     Particle manager. Manage containers of particles.
@@ -118,6 +124,9 @@ class PlayerSkillBase():
     def __init__(self, identity, player):
         self.identity = identity
         self.player = player
+    
+    def step(self):
+        pass
 
     def isActive(self):
         return True
@@ -125,7 +134,10 @@ class PlayerSkillBase():
     def getPlayer(self):
         return self.player
 
-    def getPeriod(self, key):
+    def useSkillOn(self, manager):
+        return Result.SUCCEED
+
+    def _getPeriod(self, key):
         return 0
 
 
@@ -171,6 +183,8 @@ class Player(ParticleOwnerBase):
     def step(self):
         ''' do physical calculations '''
         self.core = self.core.physicalStepCopy()
+        for skill in self.skills.values():
+            skill.step()
 
     def loadSkill(self, direction, skill):
         self.skills[direction] = skill
@@ -183,10 +197,8 @@ class Player(ParticleOwnerBase):
         # TODO: implement CD time (necessary!)
         skill = self.skills.get(direction)
         if skill == None:
-            return 1  # 1 for direction not found
-        if skill.isActive():
-            self.manager.backward(skill.getPeriod)
-        return 0  # 0 for success
+            return Result.INVALID_DIRECTION
+        return skill.useSkillOn(self.manager)
 
     def detailPrinter(self):
         print("player ", self.identity, " core:", self.core)
