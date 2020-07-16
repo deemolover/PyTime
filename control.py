@@ -45,10 +45,13 @@ class GameController():
 
         def spawnParticles(self):
             particles = ParticleGroup()
-            particles.append(ParticleState(
-                owner=self.player,
-                pos=self.player.core.pos
-            ))
+            for i in range(-4, 5):
+                mass = 1 + i / 20
+                particles.append(ParticleState(
+                    owner=self.player,
+                    mass=mass,
+                    pos=self.player.core.pos
+                ))
             self.player.manager.addParticlesToBuffer(particles)
 
         def getForce(self, particle):

@@ -258,7 +258,8 @@ class ParticleFrameManager():
         for particle in self.group:
             key = self.getKey(particle)
             if not key in self.containers.keys():
-                createContainer(key)
+                # createContainer(key)
+                continue
             self.containers[key].addNextParticle(particle)
 
         for container in self.containers.values():

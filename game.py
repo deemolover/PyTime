@@ -4,7 +4,7 @@ from sys import exit
 import pygame
 from pygame.locals import *
 
-from math import sin, cos, tan
+from math import sin, cos, tan, atan
 from math import sqrt
 
 from utils import *
@@ -144,6 +144,8 @@ class Player(ParticleOwnerBase):
         self.owner = owner
 
         self.forceCoef = 0.1
+        self.radius = 10
+        self.gravity = 2.0
         self.friction = 1.2
         self.color = color
         self.core = ParticleState(
@@ -154,7 +156,13 @@ class Player(ParticleOwnerBase):
 
     def getForce(self, particle):
         ''' override '''
-        return (self.core.pos - particle.pos)*self.forceCoef - particle.vel*self.friction
+        vec = self.core.pos - particle.pos
+        dist = vec.length()
+        coef = self.forceCoef * \
+            atan(dist / self.radius - self.gravity * particle.mass)
+        force = vec * coef
+        force = force - particle.vel*self.friction
+        return force
 
     def getColor(self, particle):
         ''' override '''
