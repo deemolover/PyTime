@@ -38,7 +38,7 @@ class ParticleManager():
         self.frame.getKey = self.getKey
         self.particlesBuffer = []
 
-        self.statics = defaultdict(int)
+        self.statistics = defaultdict(int)
 
     def addParticlesToBuffer(self, particles):
         self.particlesBuffer.extend(particles)
@@ -47,19 +47,19 @@ class ParticleManager():
         self.frame.flushAndAddParticles(self.particlesBuffer)
         self.particlesBuffer = []
 
-    def updateStatics(self):
-        self.statics.clear()
+    def updateStatistics(self):
+        self.statistics.clear()
         for particle in self.frame.group:
-            self.statics[particle.owner.identity] += 1
+            self.statistics[particle.owner.identity] += 1
 
     def particleCountOf(self, owner):
         ''' now we can get ask for number of particles! '''
-        return self.statics[owner.identity]
+        return self.statistics[owner.identity]
 
     def step(self):
         ''' delegate for frame '''
         self.frame.step()
-        self.updateStatics()
+        self.updateStatistics()
 
     def backward(self, getPeriod):
         '''
@@ -67,7 +67,7 @@ class ParticleManager():
         getPeriod(key) should return a period of int/float
         '''
         self.frame.backward(getPeriod)
-        self.updateStatics()
+        self.updateStatistics()
 
     def getKey(self, particle):
         pos = particle.pos
@@ -75,7 +75,7 @@ class ParticleManager():
                 self.interY*int(pos.y / self.interY))
 
     def detailPrinter(self):
-        print("manager: ", self.statics)
+        print("manager: ", self.statistics)
         for i in range(0, self.rangeX, self.interX):
             for j in range(0, self.rangeY, self.interY):
                 key = (i, j)
@@ -83,7 +83,7 @@ class ParticleManager():
                 self.frame.containers[key].detailPrinter()
 
     def simplePrinter(self):
-        print("manager: ", self.statics)
+        print("manager: ", self.statistics)
 
 
 class ParticleRenderer():
