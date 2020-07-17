@@ -94,7 +94,8 @@ class ParticleRenderer():
     '''
 
     def __init__(self, manager):
-        self.pixels = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.pixels = pygame.Surface(
+            (SCREEN_WIDTH, SCREEN_HEIGHT)).convert_alpha()
         # self.pixels = pygame.PixelArray(self.pixels)
         self.manager = manager
         self.scaleX = SCREEN_WIDTH / self.manager.rangeX
@@ -124,12 +125,15 @@ class PlayerSkillBase():
     def __init__(self, identity, player):
         self.identity = identity
         self.player = player
-    
+
     def step(self):
         pass
 
     def isActive(self):
         return True
+
+    def renderSkill(self, surface):
+        pass
 
     def getPlayer(self):
         return self.player
@@ -188,6 +192,9 @@ class Player(ParticleOwnerBase):
 
     def loadSkill(self, direction, skill):
         self.skills[direction] = skill
+
+    def getSkills(self):
+        return self.skills.values()
 
     def command(self, direction):
         '''

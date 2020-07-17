@@ -5,6 +5,7 @@ from pygame.locals import *
 
 from utils import *
 from game import *
+from math import sqrt
 
 
 def blitCentering(dest, image, pos):
@@ -13,11 +14,12 @@ def blitCentering(dest, image, pos):
     y = y - image.get_height()/2
     dest.blit(image, (x, y))
 
+
 class ResourcePack():
     # TODO: implement auto loading from resource directory
     def __init__(self):
         self.resources = {}
-        
+
     def loadImage(self, name, **args):
         '''
         param:
@@ -30,40 +32,146 @@ class ResourcePack():
         filename = args.get("filename", name + "." + extension)
         self.resources[name] = pygame.image.load(
             os.path.join(directory, filename))
-        
+
     def getImage(self, name):
         return self.resources.get(name)
-        
+
+
+class LayerTag():
+    BACKGROUND = 0
+    GAMEOBJECT = 4
+    PLAYER = 8
+    EFFECT = 16
+    UI = 32
+
+
+class LayerManager():
+    def __init__(self, rect=None):
+        if rect == None:
+            self.rect = ((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.layers = {}
+        self.renderedLayers = {}
+        self.maxOrder = 8
+        self.layerOrder = [
+            LayerTag.BACKGROUND,
+            LayerTag.GAMEOBJECT,
+            LayerTag.PLAYER,
+            LayerTag.EFFECT,
+            LayerTag.UI
+        ]
+
+    def getSurface(self, layerTag, orderInLayer=0, flushed=False):
+        '''
+        will (definitely) get a surface
+        if the order is out of range(-maxOrder/2, maxOrder/2),
+        it will be reset to nearest bound
+        flushed - flush the returned surface
+        '''
+        layer = self.layers.get(layerTag)
+        result = None
+        orderInLayer = int(orderInLayer)
+        orderInLayer += self.maxOrder // 2
+        if orderInLayer < 0:
+            orderInLayer = 0
+        elif orderInLayer >= self.maxOrder:
+            orderInLayer = self.maxOrder-1
+        if layer != None:
+            if layer[orderInLayer] != None:
+                result = layer[orderInLayer]
+            else:
+                surface = pygame.Surface(self.rect).convert_alpha()
+                layer[orderInLayer] = surface
+                result = surface
+        else:
+            self.renderedLayers[layerTag] = pygame.Surface(
+                self.rect).convert_alpha()
+            self.layers[layerTag] = [None] * self.maxOrder
+            surface = pygame.Surface(self.rect).convert_alpha()
+            self.layers[layerTag][orderInLayer] = surface
+            result = surface
+        if flushed == True:
+            result.fill(0)
+        return result
+
+    def tryRenderLayer(self, layerTag, target=None):
+        '''
+        try to pile up surfaces in speficied layer
+        return None if no such layer exists
+        param:
+        target - specify a target surface to render on(additively)
+        '''
+        if layerTag in self.layers.keys():
+            if target == None:
+                target = self.renderedLayers[layerTag]
+                target.fill(0)
+            for surface in self.layers[layerTag]:
+                if surface == None:
+                    continue
+
+                target.blit(surface, (0, 0))
+            return target
+        else:
+            return None
+
+    def renderLayers(self, target, layerList=None, flushed=True):
+        '''
+        render layers to target according to layerList
+        layer with smaller index in the list will be rendered earlier
+        (that is, at the bottom of target / further from viewer)
+        param:
+        layerList - list of layer tags(use default if not provided)
+        flushed - if true, target will be flushed before rendering
+        '''
+        if layerList == None:
+            layerList = self.layerOrder
+        if flushed:
+            target.fill(0)
+        for tag in layerList:
+            self.tryRenderLayer(tag, target)
+
 
 class RingSkill(PlayerSkillBase):
-    def __init__(self, identity, player):
+    def __init__(self, player):
+        # TODO use identity to manage skills, or get rid of it
+        identity = "RingSkill"
         super(RingSkill, self).__init__(identity, player)
+        self.skillPeriod = 50
         self.cooldownTimer = 0
-        self.cooldownPeriod = 10
-        
+        self.cooldownPeriod = 115
+
         self.renderTimer = 0
         self.renderPeriod = 120
-        
+
         self.innerRad = 20
         self.outerRad = 100
         self.usedPoint = None
-    
+
+        self.color = (255, 255, 0, 50)  # YELLOW
+
     def step(self):
         ''' override '''
         if self.cooldownTimer > 0:
             self.cooldownTimer -= 1
-            
-    def renderSkill(self):
+
+    def renderSkill(self, surface):
         if self.renderTimer > 0:
-            radius = (self.innerRad + self.outerRad) / 2
-            width = self.outerRad - self.innerRad
-            
+            radius = int(self.outerRad)
+            width = int(self.outerRad - self.innerRad)
+            color = None
+            pos = self.usedPoint
+            pos = (int(pos[0]), int(pos[1]))
+            pygame.draw.circle(
+                surface,
+                self.color,
+                pos,
+                radius,
+                width
+            )
             self.renderTimer -= 1
-            
-    
+
     def isActive(self):
         return self.cooldownTimer == 0
-    
+
     def useSkillOn(self, manager):
         if self.cooldownTimer > 0:
             return Result.SKILL_UNAVAILABLE
@@ -73,12 +181,16 @@ class RingSkill(PlayerSkillBase):
             self.cooldownTimer = self.cooldownPeriod
             self.renderTimer = self.renderPeriod
         return Result.SUCCEED
-    
+
     def _getPeriod(self, key):
-        pass
-        
-        
-    
+        pos = self.usedPoint
+        dist = (pos[0]-key[0])**2+(pos[1]-key[1])**2
+        dist = sqrt(dist)
+        if dist < self.outerRad and dist > self.innerRad:
+            return self.skillPeriod
+        else:
+            return 0
+
 
 class UserEvent():
     PRINTER = pygame.USEREVENT + 1
@@ -88,7 +200,7 @@ class GameController():
 
     class PlayerData(ParticleOwnerBase):
         def __init__(self, identity, manager, owner,
-                     color, loc, mapMove, mapAttack):
+                     color, loc, mapMove, mapAttack, commands):
 
             super(GameController.PlayerData, self).__init__(identity+"data")
 
@@ -110,6 +222,9 @@ class GameController():
                 color=color,
                 loc=loc
             )
+
+            for direction, skillBuilder in commands.items():
+                self.player.loadSkill(direction, skillBuilder(self.player))
 
         def spawnParticles(self):
             particles = ParticleGroup()
@@ -133,37 +248,45 @@ class GameController():
                     if event.type == pygame.KEYDOWN:
                         self.keyDown = event.key
                         self.force = self.mapMove[event.key]
-                        print("PLAYER {0} received DOWN event, response: {1}".format(
+                        print("PLAYER {0} received DOWN MOVE event, response: {1}".format(
                             self.identity, self.force))
                     else:  # KEYUP
                         if self.keyDown == event.key:
                             self.keyDown = None
                             self.force = (0, 0)
-                        print("PLAYER {0} received UP event, response: {1}".format(
+                        print("PLAYER {0} received UP MOVE event, response: {1}".format(
                             self.identity, self.force))
                 elif event.key in self.mapAttack.keys():
                     if event.type == pygame.KEYDOWN and self.attDown == None:
                         self.attDown = event.key
                         res = self.player.command(self.mapAttack[event.key])
+                        print("PLAYER {0} received DOWN ATT event, response: {1}".format(
+                            self.identity, res))
                     else:  # KEYUP
-                        if self.keyDown == event.key:
-                            self.keyDown = None
+                        if self.attDown == event.key:
+                            self.attDown = None
+                        print("PLAYER {0} received UP ATT event, response: {1}".format(
+                            self.identity, self.force))
             elif event.type == UserEvent.PRINTER:
                 self.player.detailPrinter()
             return res
-            
+
         def renderPlayer(self, surface):
             pos = self.player.core.pos.toTuple()
             image = self.owner.resources.getImage("player")
             blitCentering(surface, image, pos)
-            
+
+        def renderSkills(self, surface):
+            for skill in self.player.getSkills():
+                skill.renderSkill(surface)
 
     def __init__(self, screen):
         self.screen = screen
+        self.layers = LayerManager()
 
         self.resources = ResourcePack()
         self.resources.loadImage("player")
-        
+
         self.FPS = 40
         self.worldRect = (640, 480)
         self.interval = (2, 2)
@@ -189,6 +312,9 @@ class GameController():
             },
             mapAttack={
                 pygame.K_BACKSLASH: 1
+            },
+            commands={
+                1: RingSkill
             }
         )
 
@@ -206,6 +332,9 @@ class GameController():
             },
             mapAttack={
                 pygame.K_SPACE: 1
+            },
+            commands={
+                1: RingSkill
             }
         )
 
@@ -231,8 +360,28 @@ class GameController():
             data.player.step()
         self.manager.step()
 
-        self.screen.fill((255, 255, 255))  # WHITE BACKGROUND
+        self.layers.getSurface(
+            LayerTag.BACKGROUND,
+        ).fill((200, 200, 200))  # WHITE BACKGROUND
+
         surface = self.renderer.render()
-        self.screen.blit(surface, (0, 0))
+        self.layers.getSurface(
+            LayerTag.GAMEOBJECT,
+            flushed=True
+        ).blit(surface, (0, 0))
+
+        surface = self.layers.getSurface(
+            LayerTag.PLAYER,
+            flushed=True
+        )
         for data in self.players.values():
-            data.renderPlayer(self.screen)
+            data.renderPlayer(surface)
+
+        surface = self.layers.getSurface(
+            LayerTag.EFFECT,
+            flushed=True
+        )
+        for data in self.players.values():
+            data.renderSkills(surface)
+
+        self.layers.renderLayers(self.screen, flushed=True)
