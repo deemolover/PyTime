@@ -7,6 +7,12 @@ from utils import *
 from game import *
 from math import sqrt
 
+CONTROLLER_UPDATE_FPS = 40
+WORLD_HEIGHT = 480
+WORLD_WIDTH = 640
+HEIGHT_INTERVAL = 10
+WIDTH_INTERVAL = 10
+
 
 def blitCentering(dest, image, pos):
     x, y = pos
@@ -184,8 +190,7 @@ class RingSkill(PlayerSkillBase):
 
     def _getPeriod(self, key):
         pos = self.usedPoint
-        dist = (pos[0]-key[0])**2+(pos[1]-key[1])**2
-        dist = sqrt(dist)
+        dist = abs(pos[0]-key[0])+abs(pos[1]-key[1])
         if dist < self.outerRad and dist > self.innerRad:
             return self.skillPeriod
         else:
@@ -287,9 +292,9 @@ class GameController():
         self.resources = ResourcePack()
         self.resources.loadImage("player")
 
-        self.FPS = 40
-        self.worldRect = (640, 480)
-        self.interval = (2, 2)
+        self.FPS = CONTROLLER_UPDATE_FPS
+        self.worldRect = (WORLD_WIDTH, WORLD_HEIGHT)
+        self.interval = (WIDTH_INTERVAL, HEIGHT_INTERVAL)
 
         self.manager = ParticleManager(self.worldRect, self.interval)
         self.renderer = ParticleRenderer(self.manager)

@@ -27,7 +27,7 @@ class ParticleManager():
 
     def __init__(self,
                  worldRect=(640, 480),
-                 interval=(1, 1)
+                 interval=(10, 10)
                  ):
         self.frame = ParticleFrameManager()
         self.rangeX, self.rangeY = worldRect

@@ -1,5 +1,12 @@
 from math import sin, cos, tan, sqrt
 
+# size of buffer in one container
+CONTAINER_MAX_LENGTH = 200
+# time slice between two entries in buffer
+# time slice down, accuracy up, cost of space up
+# should be between 0 and 1
+CONTAINER_TIME_SLICE = 1
+
 
 def prettyStrDict(dictionary):
     return "{"+", ".join(["'"+str(key)+"': "+str(value) for (key, value) in dictionary.items()])+"}"
@@ -188,9 +195,11 @@ class ParticleContainer():
     Container maintains history of particle group at one place
     '''
 
-    def __init__(self, maxLength=10):
-        self.maxLength = maxLength
-        self.timeSlice = 1
+    def __init__(self, maxlength=None):
+        self.maxLength = CONTAINER_MAX_LENGTH
+        if maxlength != None:
+            self.maxLength = maxlength
+        self.timeSlice = CONTAINER_TIME_SLICE
         self.groups = []
         self.cptr = 0
         for i in range(self.maxLength):
