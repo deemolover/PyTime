@@ -18,7 +18,7 @@ To test the game, enter the root folder and run in command:
 
 ## Play
 
-There's two characters available in the game. Both of them can move and attack by keyboard input.
+There are two characters available in the game. Both of them can move and attack by keyboard input.
 
 player A: moves by arrow keys, attacks by backslash
 
